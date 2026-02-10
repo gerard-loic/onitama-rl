@@ -4,7 +4,9 @@ import random
 import math
 import numpy as np
 from card import Card
+from heuristic import HeuristicEvaluation
 
+# Classe générale pour un joueur
 class Player:
     def __init__(self):
         self.position = None
@@ -12,6 +14,7 @@ class Player:
     def set_position(self, position:int):
         self.position = position
 
+# Joueur purement aléatoire
 class RandomPlayer(Player):
     def __init__(self):
         super().__init__()
@@ -23,6 +26,17 @@ class RandomPlayer(Player):
             return None
         return random.choice(available_moves)
 
+# Joueur "humain" API
+class ApiPlayer(Player):
+    def __init__(self):
+        super().__init__()
+        self.name = "ApiPlayer"
+
+    def play(self, board:Board, from_pos:tuple, to_pos:tuple, card_idx:int):
+        available_moves = board.get_available_moves()
+        
+
+# Joueur "humain" (pour tester en mode console)
 class HumanPlayer(Player):
     def __init__(self):
         super().__init__()
@@ -63,9 +77,10 @@ class HumanPlayer(Player):
             except Exception:
                 print("Incorrect action selection !")        
 
-
+# Joueur utilisant des règles d'heuristiques pour déterminer la meilleure action à utiliser
+# heuristic_function:str : permet de spécifier la fonction de la classe HeuristicEvaluation à utiliser
 class HeuristicPlayer(Player):
-    def __init__(self, heuristic_function:str="heuristic_evaluation"):
+    def __init__(self, heuristic_function:str="heuristic_regular"):
         super().__init__()
         self.name = "HeuristicPlayer"
         self.heuristic_function = heuristic_function
@@ -74,14 +89,16 @@ class HeuristicPlayer(Player):
         best_move = None
         best_score = float('-inf')
 
+        #On récupère les mouvements possibles
         available_moves = board.get_available_moves()
         if len(available_moves) == 0:
             return None
         random.shuffle(available_moves)
 
+        #On joue chaque action et on regarde le score qu'on obtient, on garde la meilleure action
         for action in available_moves:
             last_move = board.play_move(action=action)
-            score = getattr(board, self.heuristic_function)(from_current_player_point_of_view=False)
+            score = getattr(HeuristicEvaluation, self.heuristic_function)(board=board, from_current_player_point_of_view=False)
             board.cancel_last_move(last_move=last_move)
 
             if score > best_score:
@@ -91,6 +108,9 @@ class HeuristicPlayer(Player):
         return best_move
     
 
+# Joueur utilisant des règles d'heuristique + un algorithme minimax sur N niveaux
+# max_depth:int : niveau max de profondeur de l'algo minimax
+# heuristic_function:str : permet de spécifier la fonction de la classe HeuristicEvaluation à utiliser
 class LookAheadHeuristicPlayer(Player):
     def __init__(self, max_depth:int=2, heuristic_function:str="heuristic_evaluation"):
         super().__init__()
@@ -116,6 +136,7 @@ class LookAheadHeuristicPlayer(Player):
         for action in available_actions:
             #On joue le coup
             last_move = board.play_move(action=action)
+            #On descend d'un niveaux
             score = self._minimax(board=board, depth=0, is_maximizing=False)
 
             #On annule le coup
@@ -141,7 +162,7 @@ class LookAheadHeuristicPlayer(Player):
         if depth >= self.max_depth:
             # Le score doit être du point de vue de l'IA (original_player)
             # is_maximizing=True signifie que c'est le tour de l'IA
-            return getattr(board, self.heuristic_function)(from_current_player_point_of_view=is_maximizing)
+            return getattr(HeuristicEvaluation, self.heuristic_function)(board, from_current_player_point_of_view=is_maximizing)
 
         #Coups disponibles à partir de cette position
         available_moves = board.get_available_moves()
@@ -151,7 +172,7 @@ class LookAheadHeuristicPlayer(Player):
             # Protection contre les boucles infinies de default moves
             if consecutive_default_moves >= 4:
                 # Les deux joueurs sont bloqués, retourner une évaluation neutre
-                return getattr(board, self.heuristic_function)(from_current_player_point_of_view=is_maximizing)
+                return getattr(HeuristicEvaluation, self.heuristic_function)(board, from_current_player_point_of_view=is_maximizing)
             last_default_move = board.play_default_move()
             score = self._minimax(board=board, depth=depth+1, is_maximizing=not is_maximizing, consecutive_default_moves=consecutive_default_moves+1)
             board.cancel_default_move(last_default_move)
@@ -192,7 +213,7 @@ class MCTSNode:
     def best_action(self):
         return max(self.children, key=lambda c: c.visits).action
 
-
+# Joueur implémentant la technique de Monte Carlo Tree Search
 class MCTSPlayer(Player):
     def __init__(self, num_simulations:int=1000, exploration_constant:float=1.41):
         super().__init__()
@@ -209,6 +230,7 @@ class MCTSPlayer(Player):
         
         original_player = board.current_player
 
+        # On effectue N simulations
         for _ in range(self.num_simulations):
             node = root
             moves_stack = []

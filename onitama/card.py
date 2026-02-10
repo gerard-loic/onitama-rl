@@ -3,10 +3,18 @@ import numpy as np
 import random
 from collections import namedtuple
 
+# Représente un mouvement possible réalisable à partir d'une carte
+# relative_move:(x:int,y:int) : mouvement relatif en x/y à partir du point de départ
+# card_idx:int : identifiant unique de la carte
+# move_idx:int : identifiant unique du mouvement
 Move = namedtuple('Move', ['relative_move', 'card_idx', 'move_idx'])
 
+# Représente une carte de mouvement
 class Card:
+    #Méthodes statiques
+    #------------------------------------------------------------------------------------------------------------------------------------
 
+    # Retourne un nombre de carte aléatoirement choisi
     @staticmethod
     def getCards(nb:int=None):
         global CARDS
@@ -16,11 +24,13 @@ class Card:
         else:
             return random.sample(CARDS, nb)
     
+    # Retourne une carte en fonction de son identifiant unique
     @staticmethod
     def getCard(card_idx:int):
         global CARDS
         return CARDS[card_idx]
     
+    # Retourne les mouvements d'une carte en fonction de son identifiant unique
     @staticmethod
     def getMoves(card_idx:int=None):
         global CARDS
@@ -40,6 +50,7 @@ class Card:
                     card_moves.append(move)
             return card_moves
     
+    # Retourne un mouvement en fonction de son idenfiant unique
     @staticmethod
     def getMove(move_idx:int):
         return Card.moves[move_idx]
@@ -47,7 +58,11 @@ class Card:
 
     #------------------------------------------------------------------------------------------------------------------------------------
 
-
+    #Constructeur
+    # idx:int : identifiant numétique unique
+    # name:str : nom de la carte
+    # relative_moves (x:int, y:int, move_idx:int) : mouvements
+    # color:int : COLOR_RED ou COLOR_BLUE (couleur de la carte)
     def __init__(self, idx:int, name:str, relative_moves:tuple, color:int):
         self.name = name
         self.idx = idx
@@ -56,6 +71,7 @@ class Card:
         self.print_value = self._calcPrint()
         self.opponent_print_value = self._calcPrint(position=PLAYER_TWO_POSITION)
 
+    # Retourne les mouvements possibles [(nex_x:int, new_y:int, move_idx:int)] depuis une position transmise
     def get_moves_from_position(self, position:tuple, from_player_point_of_view:int=1):
         """
         Retourne les positions absolues accessibles depuis from_pos
@@ -79,12 +95,14 @@ class Card:
         
         return valid_moves
     
+    # crée une représentation matricielle 5x5 des mouvements d'une carte (utilisée pour la représentation d'un état pour les r&seaux de neurones)
     def getMatrix(self):
         matrix = np.zeros((5, 5))
         for dx, dy, _ in self.relative_moves:
             matrix[2+dx][2+dy] = 1
         return matrix
 
+    # Calcule la représentation visuelle de la carte
     def _calcPrint(self, position:int=PLAYER_ONE_POSITION):
         """
         Affiche visuellement les mouvements possibles
@@ -100,37 +118,38 @@ class Card:
                 moves.append((mx*-1, my*-1))
 
         
-        # 1. Déterminer les bornes de la grille
+        # Déterminer les bornes de la grille
         min_x = min(dx for dx, dy in moves + [(0, 0)])
         max_x = max(dx for dx, dy in moves + [(0, 0)])
         min_y = min(dy for dx, dy in moves + [(0, 0)])
         max_y = max(dy for dx, dy in moves + [(0, 0)])
         
-        # 2. Créer la grille
+        # Créer la grille
         width = max_x - min_x + 1
         height = max_y - min_y + 1
         grid = [['-' for _ in range(width)] for _ in range(height)]
         
-        # 3. Position de référence (origine dans la grille)
+        # Position de référence (origine dans la grille)
         origin_x = -min_x
         origin_y = -min_y
         
-        # 4. Placer l'origine
+        # Placer l'origine
         grid[origin_y][origin_x] = 'O'
         
-        # 5. Placer les mouvements possibles
+        # Placer les mouvements possibles
         for dx, dy in moves:
             grid_x = origin_x + dx
             grid_y = origin_y + dy
             grid[grid_y][grid_x] = 'X'
         
-        # 6. Formater l'affichage
+        # Formater l'affichage
         result = f"{self.name}\n"
         for row in grid:
             result += "  ".join(row) + "\n"
         
         return result.strip()
 
+    # Pour affichage
     def __str__(self):
         return self.print_value
 

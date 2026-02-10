@@ -17,8 +17,13 @@ from card import Card
 if TYPE_CHECKING:
     from trainer import DataTrainer
 
-
+# Permet de jouer une partie
 class Game:
+    # Constructeur
+    # player_one:Player : joueur P1
+    # player_two:Player : joueur P2
+    # verbose:bool : indique si la partie est silencieuse ou si on fait un affichage dans la console
+    # trainer:DataTrainer : si transmis, utilise le controlleur fourni pour sauvegarder les données d'entraînement
     def __init__(self, player_one:Player, player_two:Player, verbose:bool=True, trainer:DataTrainer=None):
 
         self.verbose = verbose
@@ -29,24 +34,24 @@ class Game:
         self.player_one = player_one
         self.player_two = player_two
 
-        #On initialise un nouveau jeu
+        # On initialise un nouveau jeu
 
-        #1 on choisit aléatoirement les cartes avec lesquelles on va jouer
+        # on choisit aléatoirement les cartes avec lesquelles on va jouer
         samples = Card.getCards(nb=5)
         current_player_cards = samples[0:2]
         next_player_cards = samples[2:4]
         neutral_card = samples[4]
         
-        #On détermine le premier joueur
-        first_player = COLOR_MAPPING[neutral_card.color]
+        # On détermine le premier joueur
+        self.first_player = COLOR_MAPPING[neutral_card.color]
 
         #On initialise les joueurs
-        self.current_player = player_one if first_player == 1 else player_two
+        self.current_player = player_one if self.first_player == 1 else player_two
         self.current_player.set_position(position=PLAYER_ONE_POSITION)
-        self.next_player = player_two if first_player == 1 else player_one
+        self.next_player = player_two if self.first_player == 1 else player_one
         self.next_player.set_position(position=PLAYER_TWO_POSITION)
 
-        #On initialise le plateau
+        # On initialise le plateau
         self.board = Board(
             player_to_move=PLAYER_ONE_POSITION,
             current_player_cards=current_player_cards,
@@ -54,7 +59,7 @@ class Game:
             neutral_card=neutral_card
         )
 
-        #On place les pièces
+        # On place les pièces (disposition de  ddépart de base)
         self.board.board[0][0] = PLAYER_TWO_STUDENT
         self.board.board[1][0] = PLAYER_TWO_STUDENT
         self.board.board[2][0] = PLAYER_TWO_MASTER
@@ -73,7 +78,10 @@ class Game:
             print(f"# PLAYER O : {self.next_player.name}")
             print("#####################################################################")
 
-    def playGame(self, return_winner:bool=False, max_turns:int=200):
+    # Démarre la partie
+    # return_winner:bool : Si TRUE : retourne une information sur le gagnant
+    # max_turns:int : limite de tours, pour éviter les situations où les joueurs jouent en boucle sans jamais s'arrêter
+    def playGame(self, return_winner:bool=False, max_turns:int=200, play_once_only:bool=False):
         turn_count = 0
         while True:
             if self.verbose:
@@ -114,6 +122,7 @@ class Game:
             else:
                 self.timesP2.append(ts_after-ts_before)
 
+            #On récupère l'état du jeu
             game_ended, winner = self.board.game_has_ended()
 
             #Si le jeu est terminé
@@ -139,10 +148,21 @@ class Game:
                         return 2
                 break
             
+            #On intervertit les références des joueurs en cours et suivant
             self.current_player, self.next_player = self.next_player, self.current_player
 
+            if play_once_only:
+                return None
 
+
+# Joue un nombre défini de parties
 class GameSession:
+    # Constructeur
+    # player_one:Player : joueur P1
+    # player_two:Player : joueur P2
+    # number_of_games:int : nombre de parties à jouer
+    # verbose:bool : indique si la partie est silencieuse ou si on fait un affichage dans la console
+    # trainer:DataTrainer : si transmis, utilise le controlleur fourni pour sauvegarder les données d'entraînement
     def __init__(self, player_one:Player, player_two:Player, number_of_games:int=1, verbose:bool=False, trainer:DataTrainer=None):
         self.player_one = player_one
         self.player_two = player_two
@@ -157,6 +177,7 @@ class GameSession:
 
         self.trainer = trainer
 
+    # Démarre les parties (avec une barre de progression)
     def start(self):
         for _ in tqdm(range(self.number_of_games), f"Games  "):
             game = Game(
@@ -175,7 +196,7 @@ class GameSession:
             self.timeP1.append(np.mean(game.timesP1))
             self.timeP2.append(np.mean(game.timesP2))
 
-
+    # Retourne des stats sur les parties jouées
     def getStats(self):
         return {
             'p1_win' : self.winP1,
@@ -187,25 +208,29 @@ class GameSession:
 
 if __name__ == "__main__":
 
-    humain = HumanPlayer()
+    #humain = HumanPlayer()
     #p2 = LookAheadHeuristicPlayer()
     #p1 = CNNPlayer_v1()
     #p1.load_weights("../saved-models/CNNPlayer-withdropout-weights.weights.h5")
     #p2 = CNNPlayer_v1()
     #p2.load_weights("../saved-models/CNNPlayer-withdropout-augmented-weights.weights.h5")
-    p3 = CNNPlayer_v2(with_heuristic=True)
-    p3.load_weights("../saved-models/CNNPlayer-withdropout-datalarge-weights.weights.h5")
+    #p3 = CNNPlayer_v2(with_heuristic=True)
+    #p3.load_weights("../saved-models/CNNPlayer-withdropout-datalarge-weights.weights.h5")
     #p4 = CNNPlayer()
     #p4.load_weights("../saved-models/CNNPlayer-withdropout-datalarge-dropout-weights.weights.h5")
 
-    p4 = CNNPlayer_v3()
-    p4.load_weights("../saved-models/CNNPlayer-v3-weights.weights.h5")
+    #p4 = CNNPlayer_v3()
+    #p4.load_weights("../saved-models/CNNPlayer-v3-weights.weights.h5")
     
-    pr = LookAheadHeuristicPlayer()
+    #pr = LookAheadHeuristicPlayer()
     #p2 = CNNPlayer()
     #p2.load_weights("../saved-models/CNNPlayer-withdropout-weights.weights.h5")
     #p2.load_weights("../saved-models/CNNPlayer-withdropout-augmented-weights.weights.h5")
-    game = Game(verbose=True, player_one=p3, player_two=humain)
+
+    p1 = HeuristicPlayer(heuristic_function="heuristic_defensive")
+    p2 = RandomPlayer()
+
+    game = Game(verbose=True, player_one=p1, player_two=p2)
     game.playGame()
 
     #gameSession = GameSession(player_one=p4, player_two=p3, number_of_games=100)

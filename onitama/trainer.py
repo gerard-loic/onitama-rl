@@ -7,6 +7,7 @@ from pathlib import Path
 import pickle
 import numpy as np
 
+# Classe "parente" des data trainers
 class DataTrainer:
     def __init__(self):
         pass
@@ -17,8 +18,12 @@ class DataTrainer:
     def close(self, winner:Player):
         pass
 
+# Classe permettant la gestion des parties visant à générer des données d'entraînement
 class RegularDataTrainer(DataTrainer):
+    #Méthodes statiques
+    #------------------------------------------------------------------------------------------------------------------------------------
 
+    # Permet de récupérer des données d'entraînement déjà générées
     @staticmethod
     def getTrainedData(filepath:str):
         all_data = []
@@ -31,7 +36,17 @@ class RegularDataTrainer(DataTrainer):
                     break
         return all_data
     
+    #------------------------------------------------------------------------------------------------------------------------------------
 
+    # Constructeur
+    # p1:Player : Joueur P1
+    # p2:Player : Joueur P2
+    # p1_record:bool : Est ce qu'on enregistre les données pour P1
+    # p2_record:bool : Est ce qu'on enregistre les données pour P2
+    # save_only_wins:bool : Est ce qu'on enregistre seulement les données des parties où le joueur a gagné
+    # x_file_destination:str : Emplacement du fichier de destination des features
+    # y_file_destination:str : Emplacement du fichier de destination des labels
+    # override:bool : Si le fichier existe déjà on l'écrase
     def __init__(self, p1:Player, p2:Player, p1_record:bool, p2_record:bool, save_only_wins:bool, x_file_destination:str, y_file_destination:str, override:bool=False):
         super().__init__()
         self.p1 = p1
@@ -56,17 +71,23 @@ class RegularDataTrainer(DataTrainer):
                 fichier_y.unlink()
                 print(f"File {self.y_file_destination} deleted !")
 
+    # Initialise le cache
     def _init_cache(self):
         self.cache_states_p1 = []
         self.cache_actions_p1 = []
         self.cache_states_p2 = []
         self.cache_actions_p2 = []
 
+    # Enregistre une expérience, c'est à dire un couple état / action (met en cache)
+    # player:Player : joueur
+    # state:list[5:5:10] : Etat (Matrice de 5x5x10)
+    # action:list(rel_x:int, rel_y:int, move_idx:int) : Action 
     def save_experience(self, player:Player, state:list, action:list):
         super().save_experience(player, state)
 
         t = np.array(state)
 
+        # Mise en cache
         if (player == self.p1 and self.p1_record):
             self.cache_states_p1.append(state)
             self.cache_actions_p1.append(action)
@@ -74,12 +95,14 @@ class RegularDataTrainer(DataTrainer):
             self.cache_states_p2.append(state)
             self.cache_actions_p2.append(action)
 
+    # Enregistre les expériences en cache dans le fichier (quand une partie est terminée)
     def close(self, winner:Player):
         super().close(winner)
     
         x_to_write = []
         y_to_write = []
 
+        # Si on enregistre uniquement les parties qui se solvent par une victoire, ne prendre en compte que si le joueur a hgagné
         if self.save_only_wins:
             if winner == self.p1:
                 x_to_write += self.cache_states_p1
@@ -93,11 +116,13 @@ class RegularDataTrainer(DataTrainer):
             y_to_write += self.cache_actions_p1
             y_to_write += self.cache_actions_p2
 
+        # Enregistrement à la suite du fichier
         with open(self.x_file_destination, 'ab') as f:
             pickle.dump(x_to_write, f)
         with open(self.y_file_destination, 'ab') as f:
             pickle.dump(y_to_write, f)
         
+        # On réinitialise le cache
         self._init_cache()
 
 

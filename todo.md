@@ -1,6 +1,6 @@
 [ ] Refactor du code
 [ ] Implémenter une logique de jeu se basant sur les N meilleurs coups identifiés
-
+[ ] Eviter la transposition dans CNN_Player (dans play())
 
 à appronfondir : 
 

@@ -18,22 +18,24 @@ def top_k_accuracy(k):
     metric.__name__ = f'top_{k}_accuracy'
     return metric
 
+# V3 du joueur utilisant un réseau de neurones
+# Modifications par rapport à V2 :
+# - Moins de filtres (64 au lieu de 128)
+# - Moins de blocs résiduels (2 au lieu de 5)
+# - Moins de dropout (0.2 au lieu de 0.4)
 class CNNPlayer_v3(Player):
+    #Méthodes statiques
+    #------------------------------------------------------------------------------------------------------------------------------------
+
+    # Décode un vecteur aplati (1300,) en [col, ligne, move_idx] 
+    # Pour usage avec un array (1300,) en one-hot ou probabilités
+    # retourne col, ligne, move_idx
     @staticmethod
     def decode_flat_policy(flat_policy):
-        """
-        Décode un vecteur aplati (1300,) en [col, ligne, move_id]
-        
-        Args:
-            flat_policy: array de shape (1300,) - one-hot ou probabilités
-            
-        Returns:
-            action: col, ligne, move_id
-        """
-        # 1. Trouver l'index du maximum (ou du 1.0 si one-hot)
+        # Trouver l'index du maximum (ou du 1.0 si one-hot)
         best_index = np.argmax(flat_policy)
         
-        # 2. Décoder l'index
+        # Décoder l'index
         col = best_index // (5 * 52)
         ligne = (best_index // 52) % 5
         move_id = best_index % 52
@@ -41,22 +43,21 @@ class CNNPlayer_v3(Player):
         return int(col), int(ligne), int(move_id)
 
 
-
-
     #------------------------------------------------------------------------------------------------------------------------------------
-    """
-    n_filters: nombre de filtres (ou canaux) dans les couches convolutionnelles
-    """
 
+    # Constructeur
+    # n_filters:int : Nombre de canaux (filtres) dans les couches convolutionnelles
+    # dropout_rate:float : % de dropout
+    # with_heuristic:bool : ???
     def __init__(self, n_filters:int=128, dropout_rate:float=0.2, with_heuristic:bool=False):
         super().__init__()
-        self.name = "CNNPlayer"
+        self.name = "CNNPlayer_V3"
 
         #Paramètres du réseau
         self.n_filters = 64        #Canaux de sortie de la couche de convolution (chaque filtre détecte un motif différent)
         self.kernel_size = 3        #Taille du filtre : 3x3 pixels
         self.n_residual_blocs = 2   #Nombre de blocs résiduels
-        self.n_moves = 52
+        self.n_moves = 52           #Nombre de mouvements possinles
         self.dropout_rate = dropout_rate  #Taux de dropout pour la régularisation
         self.with_heuristic = with_heuristic #Si TRUE : exploite les meilleures actions retournées pour essayer de déterminer celle qui est vraiment meilleure
 
@@ -66,11 +67,13 @@ class CNNPlayer_v3(Player):
         # Garder des références aux différentes parties du réseau
         self._identify_heads()
 
-
+    # Joue un coup
     def play(self, board:Board):
-        #On récupère le state
+        #On récupère le state (matrice 5,5,10)
         state = np.array(board.get_state())
+
         #On le transpose (10, 5, 5) => (5, 5, 10)
+        # TODO à améliorer
         state = np.transpose(state, (1, 2, 0))
 
         #On récupère les mouvements possibles
@@ -89,11 +92,10 @@ class CNNPlayer_v3(Player):
 
         #Pour chaque action valide, on conserve le logit correspondant
         action_to_move = {}  # flat_idx -> Action (pour retrouver l'action après)
-        #TODO : implémeter le get flat index dans l'action ?
         for action in available_moves:
             col, row = action.from_pos
             move_idx = action.move_idx
-            #Calcul de l'index flat : col * (5 * 52) + row * 52 + move_idx
+            #Calcul de l'index flat de l'action : col * (5 * 52) + row * 52 + move_idx
             flat_idx = col * (5 * 52) + row * 52 + move_idx
             masked_logits[flat_idx] = policy_logits[flat_idx]
             action_to_move[flat_idx] = action
@@ -126,6 +128,8 @@ class CNNPlayer_v3(Player):
 
         return best_action
 
+
+    # A conserver ?
     def _softmax(self, x):
         """Softmax stable numériquement (gère les -inf)"""
         #Remplacer -inf par une très petite valeur pour éviter les NaN
@@ -133,17 +137,13 @@ class CNNPlayer_v3(Player):
         exp_x = np.exp(x_safe - np.max(x_safe))
         return exp_x / exp_x.sum()
 
-    """
-        Fait une prédiction
-        
-        Args:
-            state: (batch, 5, 5, 10) ou (5, 5, 10)
-            training: bool
-            
-        Returns:
-            policy_logits: (batch, 5, 5, 52)
-            value: (batch, 1)
-        """
+
+    # Réalise une prédiction
+    # state:dict(5,5,10) ou (batch,5,5,10)
+    # training:bool : ????
+    # Retourne : 
+    # policy_logits : (batch, 5, 5, 52) 
+    # value : (batch, 1)
     def predict(self, state:dict, training:bool=False):
         # Ajouter dimension batch si nécessaire
         if len(state.shape) == 3:
@@ -269,7 +269,6 @@ class CNNPlayer_v3(Player):
         )(inputs)   #Applique la couche aux données
 
         #Normalise les valeurs pour qu'elles aient une moyenne proche de 0 et un écart-type proche de 1
-        #Pourquoi ?
         #Stabilise l'entraînement en évitant que les valeurs explosent ou s'effondrent au fil des couches
         #Accélère la convergence : le réseau apprend plus vite car les gradients sont mieux calibrés
         #Réduit légèrement l'overfitting

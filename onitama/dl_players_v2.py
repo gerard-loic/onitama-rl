@@ -18,22 +18,24 @@ def top_k_accuracy(k):
     metric.__name__ = f'top_{k}_accuracy'
     return metric
 
+# V2 du joueur utilisant un réseau de neurones
+# Modifications par rapport à V1 :
+# - Implémentation d'une option permettant de sélectionner le meilleur coup avec également de l'heuristique
+# - Implémentation de métriques permettant de voir si le meilleur coup est dans les 3/5/10 coups sélectionnés par le modèle
+# - Utilisation d'Adam au lieu de AdamW (pour réduire l'over-fitting)
 class CNNPlayer_v2(Player):
+    #Méthodes statiques
+    #------------------------------------------------------------------------------------------------------------------------------------
+
+    # Décode un vecteur aplati (1300,) en [col, ligne, move_idx] 
+    # Pour usage avec un array (1300,) en one-hot ou probabilités
+    # retourne col, ligne, move_idx
     @staticmethod
     def decode_flat_policy(flat_policy):
-        """
-        Décode un vecteur aplati (1300,) en [col, ligne, move_id]
-        
-        Args:
-            flat_policy: array de shape (1300,) - one-hot ou probabilités
-            
-        Returns:
-            action: col, ligne, move_id
-        """
-        # 1. Trouver l'index du maximum (ou du 1.0 si one-hot)
+        # Trouver l'index du maximum (ou du 1.0 si one-hot)
         best_index = np.argmax(flat_policy)
         
-        # 2. Décoder l'index
+        # Décoder l'index
         col = best_index // (5 * 52)
         ligne = (best_index // 52) % 5
         move_id = best_index % 52
@@ -44,11 +46,11 @@ class CNNPlayer_v2(Player):
 
 
     #------------------------------------------------------------------------------------------------------------------------------------
-    """
-    n_filters: nombre de filtres (ou canaux) dans les couches convolutionnelles
-    """
 
-    def __init__(self, n_filters:int=128, dropout_rate:float=0.4, with_heuristic:bool=False):
+    # Constructeur
+    # dropout_rate:float : % de dropout
+    # with_heuristic:bool : ???
+    def __init__(self, dropout_rate:float=0.4, with_heuristic:bool=False):
         super().__init__()
         self.name = "CNNPlayer"
 
@@ -133,17 +135,12 @@ class CNNPlayer_v2(Player):
         exp_x = np.exp(x_safe - np.max(x_safe))
         return exp_x / exp_x.sum()
 
-    """
-        Fait une prédiction
-        
-        Args:
-            state: (batch, 5, 5, 10) ou (5, 5, 10)
-            training: bool
-            
-        Returns:
-            policy_logits: (batch, 5, 5, 52)
-            value: (batch, 1)
-        """
+    # Réalise une prédiction
+    # state:dict(5,5,10) ou (batch,5,5,10)
+    # training:bool : ????
+    # Retourne : 
+    # policy_logits : (batch, 5, 5, 52) 
+    # value : (batch, 1)
     def predict(self, state:dict, training:bool=False):
         # Ajouter dimension batch si nécessaire
         if len(state.shape) == 3:
