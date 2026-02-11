@@ -2,34 +2,29 @@ from sessionmemory import SessionMemory
 import sys
 sys.path.append('../onitama/')
 from game import Game
-from players import HeuristicPlayer, ApiPlayer
+from players import HeuristicPlayer, ApiPlayer, Player
 from constants import *
+from exceptions import InvalidPlayerException, GameEndedException, InvalidSessionException, PlayerNotFoundException
 
 players = {
-    'heuristic_regular' : HeuristicPlayer(heuristic_function='heuristic_regular')
+    'heuristic_regular' : { 'class' : HeuristicPlayer(heuristic_function='heuristic_regular'), 'name' : 'Joueur heuristique (regular)'}
 }
 
 class GameManager:
     @staticmethod
     def create(player:str):
         #Initialisation de P1 (Joueur)
-        p1 = ApiPlayer()
+        pj = ApiPlayer()
 
         #Initialisation de P2 (Machine)
         if player in players:
-            p2 = players[player]
+            pm = players[player]['class']
         else:
-            raise Exception(f"Player {player} not found !")   
+            raise PlayerNotFoundException(player=player)
 
-        game = Game(player_one=p1, player_two=p2, verbose=False)
-        turn_num = 1
-        #Si c'est au tour de p1
-        if game.current_player == p2:
-            print("On joue le tour de p2")
-            game.playGame(return_winner=True, max_turns=200, play_once_only=True)
-            turn_num += 1
+        game = Game(player_one=pj, player_two=pm, verbose=False)
             
-        uid = SessionMemory.createSession(data={'game' : game, 'turn_num' : turn_num})
+        uid = SessionMemory.createSession(data={'game' : game, 'turn_num' : 1, 'pj' : pj, 'pm' : pm})
         gm = GameManager(uid=uid)
 
         return gm
@@ -37,12 +32,39 @@ class GameManager:
 
     def __init__(self, uid:str):
         session = SessionMemory.getSession(sessionId=uid)
+        if session is None:
+            raise InvalidSessionException(session=uid)
         self.uid = uid
         self.game = session['game']
         self.turn_num = session['turn_num']
+        self.pj = session['pj']
+        self.pm = session['pm']
 
+    def player_play(self, from_pos:tuple, to_pos:tuple, card_idx:int):
+        if self.game.current_player == self.pj:
+            ended, winner = self.game.board.game_has_ended()
+            if ended:
+                raise GameEndedException()
+            self.pj.set_next_move(from_pos=from_pos, to_pos=to_pos, card_idx=card_idx)
+            self.game.playGame(return_winner=False, max_turns=200, play_once_only=True)
+            self.turn_num += 1
+            self.save()
+        else:
+            raise InvalidPlayerException("HUMAN")
 
-
+    def opponent_play(self):
+        if self.game.current_player == self.pm:
+            ended, winner = self.game.board.game_has_ended()
+            if ended:
+                raise GameEndedException()
+            self.game.playGame(return_winner=False, max_turns=200, play_once_only=True)
+            self.turn_num += 1
+            self.save()
+        else:
+            raise InvalidPlayerException("IA")
+    
+    def save(self):
+        SessionMemory.updateSession(sessionId=self.uid, data={'game' : self.game, 'turn_num' : self.turn_num, 'pj' : self.pj, 'pm' : self.pm})
 
     def get_game_representation(self):
         ended, winner = self.game.board.game_has_ended()
@@ -50,6 +72,7 @@ class GameManager:
         return {
             'game_uid' : self.uid,
             'turn_num' : self.turn_num,
+            'current_player' : "HUMAN" if self.game.current_player == self.pj else "IA",
             'player_cards' : self.game.board.current_player_cards,
             'opponent_cards' : self.game.board.next_player_cards,
             'neutral_card' :self.game.board.neutral_card,

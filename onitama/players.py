@@ -5,6 +5,9 @@ import math
 import numpy as np
 from card import Card
 from heuristic import HeuristicEvaluation
+import sys
+sys.path.append('../api/')
+from exceptions import InvalidMoveException
 
 # Classe générale pour un joueur
 class Player:
@@ -26,15 +29,29 @@ class RandomPlayer(Player):
             return None
         return random.choice(available_moves)
 
-# Joueur "humain" API
+# Joueur "humain" API (utilisé pour les APIs)
 class ApiPlayer(Player):
     def __init__(self):
         super().__init__()
         self.name = "ApiPlayer"
+        self.from_pos = None
+        self.to_pos = None
+        self.card_idx = None
+    
+    def set_next_move(self, from_pos:tuple, to_pos:tuple, card_idx:int):
+        self.from_pos = from_pos
+        self.to_pos = to_pos
+        self.card_idx = card_idx
 
-    def play(self, board:Board, from_pos:tuple, to_pos:tuple, card_idx:int):
+    def play(self, board:Board):
         available_moves = board.get_available_moves()
-        
+        for move in available_moves:
+            if move.from_pos == self.from_pos and move.card_idx == self.card_idx and move.to_pos == self.to_pos:
+                return move
+            
+        raise InvalidMoveException()
+
+
 
 # Joueur "humain" (pour tester en mode console)
 class HumanPlayer(Player):
